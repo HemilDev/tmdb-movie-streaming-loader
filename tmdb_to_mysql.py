@@ -17,6 +17,8 @@ DB_CONFIG = {
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASS"),
     "database": os.getenv("DB_NAME"),
+    "port": int(os.getenv("DB_PORT", 3306)),
+    "ssl_ca": "certs/ca.pem"   # put your Aiven ca.pem here
 }
 
 YEARS = range(2015, 2026)
@@ -33,16 +35,25 @@ cursor = conn.cursor()
 # -------------------------
 # Helper Functions
 # -------------------------
-def fetch_movie_details(movie_id):
-    """Fetch full details for a single movie (runtime, imdb_id, genres, etc.)"""
-    url = f"https://api.themoviedb.org/3/movie/{movie_id}"
-    params = {"api_key": API_KEY}
+def fetch_movies(year, language, page=1):
+    """Fetch a page of movies from TMDB discover API"""
+    url = "https://api.themoviedb.org/3/discover/movie"
+    params = {
+        "api_key": API_KEY,
+        "language": "en-US",  # keep results readable
+        "region": "IN" if language != "en" else "US",  # India for Indian langs, US for English
+        "with_original_language": language,
+        "sort_by": "popularity.desc",
+        "primary_release_year": year,
+        "page": page
+    }
     r = requests.get(url, params=params)
     if r.status_code == 429:
-        print("Rate limit hit on details API. Sleeping 10 sec...")
+        print("Rate limit hit. Sleeping 10 sec...")
         time.sleep(10)
-        return fetch_movie_details(movie_id)
+        return fetch_movies(year, language, page)
     return r.json()
+
 
 def save_movie(movie):
     details = fetch_movie_details(movie["id"])  # Get extra details
